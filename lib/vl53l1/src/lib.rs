@@ -22,7 +22,6 @@ mod tuningparm;
 use core::convert::TryFrom;
 use embedded_hal::{delay::DelayNs, i2c::I2c};
 use reg::{structs::Entries, Entry};
-use defmt::{debug, trace};
 
 pub use self::reg::{
     read_byte, read_entry, read_slice, read_word, write_byte, write_entry, write_slice, write_word,
@@ -573,6 +572,7 @@ pub mod device_sequence_config {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[repr(u8)]
 pub enum RangeStatus {
     RANGE_VALID = 0,
@@ -764,6 +764,7 @@ impl DeviceSscArray {
 
 /// Single range measurement data.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct RangingMeasurementData {
     /// 32-bit time stamp.
     ///
@@ -773,8 +774,8 @@ pub struct RangingMeasurementData {
     pub stream_count: u8,
     /// Indicate a quality level in percentage from 0 to 100.
     ///
-    /// Not yet implemented (by ST).
-    range_quality_level: u8,
+    /// A value of 0 may indicate invalid data due to communication failure.
+    pub range_quality_level: u8,
     /// Return signal rate (MCPS)\n these is a 16.16 fix point value, which is effectively a
     /// measure of target reflectance.
     pub signal_rate_rtn_mega_cps: FixPoint1616,
@@ -1137,13 +1138,10 @@ pub fn data_init<I, E>(dev: &mut Device, i2c: &mut I) -> Result<(), Error<E>>
 where
     I: I2c<Error = E>,
 {
-    debug!("VL53L1 data_init");
     let mut b = read_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG).map_err(Error::I2c)?;
-    trace!("VL53L1 data_init - PAD_I2C_HV__EXTSUP_CONFIG before: 0x{:02X}", b);
     b = (b & 0xFE) | 0x01;
     write_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG, b).map_err(Error::I2c)?;
 
-    debug!("VL53L1 core_data_init");
     let read_p2p_data = 1;
     core_data_init(&mut dev.data.ll, i2c, read_p2p_data)?;
 
@@ -1454,12 +1452,9 @@ where
     I: I2c<Error = E>,
     D: Delay,
 {
-    debug!("Sending reset command");
     write_byte(i2c, reg::SOFT_RESET::INDEX, 0x00)?;
-    trace!("Second part of reset");
     d.delay_us(SOFTWARE_RESET_DURATION as u32);
     write_byte(i2c, reg::SOFT_RESET::INDEX, 0x01)?;
-    debug!("Device reset command issued.");
 
     poll_for_boot_completion(
         &mut dev.data.ll,
@@ -2312,6 +2307,9 @@ fn get_tuning_parm(dev: &mut Device, tuning_parm_key: TuningParm) -> Result<i32,
     Ok(v)
 }
 
+/// Timing budget is the time required by the sensor to perform one range measurement.
+///
+/// The minimum and maximum timing budgets are \[20ms, 1000ms].
 pub fn set_measurement_timing_budget_micro_seconds(
     dev: &mut Device,
     measurement_timing_budget_micro_seconds: u32,

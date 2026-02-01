@@ -24,8 +24,6 @@ mod map;
 pub mod settings;
 pub mod structs;
 
-use defmt::{trace, Format};
-
 use embedded_hal::i2c::I2c;
 pub use map::*;
 pub use structs::Entries;
@@ -81,13 +79,8 @@ where
         *d = *s;
     }
 
-    trace!("I2C Write: Index: {:#x}, Data: {:?}", index as u16, data);
-
     // Write the data to the slave.
-    let data = i2c.write(SLAVE_ADDR, &data);
-
-    trace!("I2C Write Complete");
-    data
+    i2c.write(SLAVE_ADDR, &data)
 }
 
 /// Read the value at the given index into the given slice.
@@ -99,10 +92,7 @@ where
     I: I2c,
 {
     let arr: [u8; 2] = index.into();
-    trace!("I2C Read: Index: {:#x}, Data Len: {}", index as u16, slice.len());
-    let data = i2c.write_read(SLAVE_ADDR, &arr, slice);
-    trace!("I2C Read Complete: Data: {:?}", slice);
-    data
+    i2c.write_read(SLAVE_ADDR, &arr, slice)
 }
 
 /// Shorthand for writing a slice with a single byte.
@@ -160,7 +150,6 @@ where
     E: Entry,
 {
     let mut arr: E::Array = Default::default();
-    trace!("Reading entry at index {:#x}", E::INDEX as u16);
     read_slice(i2c, E::INDEX, arr.as_mut())?;
     Ok(E::from_array(arr))
 }
