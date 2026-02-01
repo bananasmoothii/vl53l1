@@ -129,6 +129,10 @@ pub struct DeviceParameters {
 #[repr(u8)]
 pub enum PresetMode {
     Autonomous = 3,
+    /// Lite ranging mode only works when the CPU is available to read the result and clear the interrupt. With the
+    /// preset mode VL53L1_PRESETMODE_LITE_RANGING, the start command enables the next ranging. A
+    /// new ranging starts immediately after the start command is issued. By default, the inter-measurement period
+    /// is set to equal the timing budget
     LiteRanging = 4,
     LowpowerAutonomous = 8,
 }
