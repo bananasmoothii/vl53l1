@@ -3708,10 +3708,10 @@ fn compute_rql(active_results: u8, filtered_range_status: u8, results_data: &Ran
             lrap * results_data.median_range_mm as u32
         };
         let srql: FixPoint1616 = if ras != 0 {
-            let mut partial: FixPoint1616 = ggm * results_data.sigma_mm as u32;
-            partial = partial + (ras >> 1);
+            let mut partial: FixPoint1616 = ggm.saturating_mul(results_data.sigma_mm as u32);
+            partial = partial.saturating_add(ras >> 1);
             partial = partial / ras;
-            partial = partial * 65_536;
+            partial = partial.saturating_add(65_536);
             if partial <= gi {
                 gi - partial
             } else {
