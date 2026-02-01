@@ -218,7 +218,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS(u16);
+    pub struct ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS(i16);
     impl Debug;
     i16;
     pub get, set: 15, 0;
@@ -244,7 +244,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct ALGO__CROSSTALK_COMPENSATION_Y_PLANE_GRADIENT_KCPS(u16);
+    pub struct ALGO__CROSSTALK_COMPENSATION_Y_PLANE_GRADIENT_KCPS(i16);
     impl Debug;
     i16;
     pub get, set: 15, 0;
@@ -296,7 +296,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct ALGO__PART_TO_PART_RANGE_OFFSET_MM(u16);
+    pub struct ALGO__PART_TO_PART_RANGE_OFFSET_MM(i16);
     impl Debug;
     i16;
     pub get, set: 12, 0;
@@ -322,7 +322,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct MM_CONFIG__INNER_OFFSET_MM(u16);
+    pub struct MM_CONFIG__INNER_OFFSET_MM(i16);
     impl Debug;
     i16;
     pub get, set: 15, 0;
@@ -348,7 +348,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct MM_CONFIG__OUTER_OFFSET_MM(u16);
+    pub struct MM_CONFIG__OUTER_OFFSET_MM(i16);
     impl Debug;
     i16;
     pub get, set: 15, 0;
@@ -1936,7 +1936,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(u32);
+    pub struct RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -2112,7 +2112,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(u32);
+    pub struct RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -7980,7 +7980,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(u32);
+    pub struct PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -8156,7 +8156,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(u32);
+    pub struct PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -10041,7 +10041,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(u32);
+    pub struct SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -10217,7 +10217,7 @@ bitfield! {
 
 bitfield! {
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(u32);
+    pub struct SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1(i32);
     impl Debug;
     i32;
     pub get, set: 31, 0;
@@ -13126,7 +13126,7 @@ impl Entry for ALGO__CROSSTALK_COMPENSATION_X_PLANE_GRADIENT_KCPS {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u16::from_be_bytes(arr))
+        Self(i16::from_be_bytes(arr))
     }
 }
 
@@ -13165,7 +13165,7 @@ impl Entry for ALGO__CROSSTALK_COMPENSATION_Y_PLANE_GRADIENT_KCPS {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u16::from_be_bytes(arr))
+        Self(i16::from_be_bytes(arr))
     }
 }
 
@@ -13243,7 +13243,7 @@ impl Entry for ALGO__PART_TO_PART_RANGE_OFFSET_MM {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u16::from_be_bytes(arr))
+        Self(i16::from_be_bytes(arr))
     }
 }
 
@@ -13282,7 +13282,7 @@ impl Entry for MM_CONFIG__INNER_OFFSET_MM {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u16::from_be_bytes(arr))
+        Self(i16::from_be_bytes(arr))
     }
 }
 
@@ -13321,7 +13321,7 @@ impl Entry for MM_CONFIG__OUTER_OFFSET_MM {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u16::from_be_bytes(arr))
+        Self(i16::from_be_bytes(arr))
     }
 }
 
@@ -15713,7 +15713,7 @@ impl Entry for RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 
@@ -15973,7 +15973,7 @@ impl Entry for RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 
@@ -24608,7 +24608,7 @@ impl Entry for PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 
@@ -24868,7 +24868,7 @@ impl Entry for PREV_SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 
@@ -27742,7 +27742,7 @@ impl Entry for SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD0 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 
@@ -28002,7 +28002,7 @@ impl Entry for SHADOW_RESULT_CORE__SIGNAL_TOTAL_EVENTS_SD1 {
     }
 
     fn from_array(arr: Self::Array) -> Self {
-        Self(u32::from_be_bytes(arr))
+        Self(i32::from_be_bytes(arr))
     }
 }
 

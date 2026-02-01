@@ -1,6 +1,7 @@
 use core::convert::TryFrom;
+use defmt::Format;
 
-#[derive(Debug)]
+#[derive(Debug, Format)]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 pub enum Error<I> {
     /// An error occurred in the I2C communication.
@@ -12,7 +13,7 @@ pub enum Error<I> {
 }
 
 /// Separate warnings into their own type in order to allow for handling them separately.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Format, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[repr(i8)]
 pub enum Warning {
@@ -31,7 +32,7 @@ pub enum Warning {
     XTALK_SIGMA_LIMIT_FOR_GRADIENT = -40,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Format)]
 #[cfg_attr(feature = "ufmt", derive(ufmt::derive::uDebug))]
 #[repr(i8)]
 pub enum StError {

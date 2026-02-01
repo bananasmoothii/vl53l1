@@ -11,11 +11,15 @@ homepage = "https://github.com/mitchmindtree/vl53l1"
 edition = "2018"
 
 [dependencies]
-bitfield = "0.14"
+bitfield = "0.19.4"
 embedded-hal = "1.0.0"
 nb = "1"
 ufmt = { version = "0.1.0", optional = true }
 vl53l1-reg = { version = "0.2", path = "../vl53l1-reg" }
+
+defmt = "1.0.1"
+defmt-rtt = "1.0.0"
+log = "0.4.29"
 
 # TODO
 # [features]
