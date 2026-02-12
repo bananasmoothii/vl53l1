@@ -11,5 +11,5 @@ homepage = "https://github.com/mitchmindtree/vl53l1"
 edition = "2018"
 
 [dependencies]
-bitfield = "0.19.4"
+bitfield = "0.19"
 embedded-hal = "1.0.0"
