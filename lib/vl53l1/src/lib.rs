@@ -774,7 +774,7 @@ pub struct RangingMeasurementData {
     pub stream_count: u8,
     /// Indicate a quality level in percentage from 0 to 100.
     ///
-    /// A value of 0 may indicate invalid data due to communication failure.
+    /// Not yet implemented (by ST).
     pub range_quality_level: u8,
     /// Return signal rate (MCPS)\n these is a 16.16 fix point value, which is effectively a
     /// measure of target reflectance.
@@ -796,7 +796,7 @@ pub struct RangingMeasurementData {
     ///
     /// Final value is a RangeMilliMeter + RangeFractionalPart/256.
     ///
-    /// @warning Not yet implemented
+    /// Not yet implemented (by ST).
     range_fractional_part: u8,
     /// Range Status for the current measurement.
     ///
