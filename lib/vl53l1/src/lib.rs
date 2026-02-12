@@ -20,7 +20,7 @@ mod preset_mode;
 mod tuningparm;
 
 use core::convert::TryFrom;
-use embedded_hal::{delay::DelayNs, i2c::I2c};
+use embedded_hal_async::{delay::DelayNs, i2c::I2c};
 use reg::{structs::Entries, Entry};
 
 pub use self::reg::{
@@ -1134,16 +1134,22 @@ where
 /// Performs device initialization.
 ///
 /// It is called **once and only once** after the device is brought out of reset.
-pub fn data_init<I, E>(dev: &mut Device, i2c: &mut I) -> Result<(), Error<E>>
+pub async fn data_init<I, E>(dev: &mut Device, i2c: &mut I) -> Result<(), Error<E>>
 where
     I: I2c<Error = E>,
 {
-    let mut b = read_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG).map_err(Error::I2c)?;
+    let mut b = read_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG)
+        .await
+        .map_err(Error::I2c)?;
     b = (b & 0xFE) | 0x01;
-    write_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG, b).map_err(Error::I2c)?;
+    write_byte(i2c, reg::Index::PAD_I2C_HV__EXTSUP_CONFIG, b)
+        .await
+        .map_err(Error::I2c)?;
 
     let read_p2p_data = 1;
-    core_data_init(&mut dev.data.ll, i2c, read_p2p_data)?;
+    core_data_init(&mut dev.data.ll, i2c, read_p2p_data)
+        .await
+        .map_err(Error::I2c)?;
 
     dev.data.pal_state = State::WaitStaticinit;
     dev.data.current_parameters.preset_mode = PresetMode::LowpowerAutonomous;
@@ -1278,7 +1284,7 @@ where
 /// Calibration that allows adjustment of the number of SPADs to optimize the device dynamic.
 ///
 /// See the VL53L1X API User Manual section 3.1 for more information.
-pub fn perform_ref_spad_management<I, D, E>(
+pub async fn perform_ref_spad_management<I, D, E>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -1307,6 +1313,7 @@ where
             reg::Index::REF_SPAD_MAN__NUM_REQUESTED_REF_SPADS,
             &numloc,
         )
+        .await
         .map_err(Error::I2c)?;
 
         dev.data.ll.customer.ref_spad_man__num_requested_ref_spads.0 = numloc[0];
@@ -1447,21 +1454,22 @@ where
 /// Returns `Ok` if the device rebooted successfully.
 ///
 /// Returns `Err(WouldBlock)` if the `boot_timeout_ms` is exceeded.
-pub fn software_reset<I, E, D>(dev: &mut Device, i2c: &mut I, d: &mut D) -> nb::Result<(), E>
+pub async fn software_reset<I, E, D>(dev: &mut Device, i2c: &mut I, d: &mut D) -> nb::Result<(), E>
 where
     I: I2c<Error = E>,
     D: Delay,
 {
-    write_byte(i2c, reg::SOFT_RESET::INDEX, 0x00)?;
+    write_byte(i2c, reg::SOFT_RESET::INDEX, 0x00).await?;
     d.delay_us(SOFTWARE_RESET_DURATION as u32);
-    write_byte(i2c, reg::SOFT_RESET::INDEX, 0x01)?;
+    write_byte(i2c, reg::SOFT_RESET::INDEX, 0x01).await?;
 
     poll_for_boot_completion(
         &mut dev.data.ll,
         i2c,
         d,
         config::BOOT_COMPLETION_POLLING_TIMEOUT_MS,
-    )?;
+    )
+    .await?;
     Ok(())
 }
 
@@ -1543,7 +1551,7 @@ where
 // -----------------------------------------------------------------------------
 
 /// Currently a very simple function to clear customer xtalk parms and apply to device.
-fn disable_xtalk_compensation<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn disable_xtalk_compensation<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -1574,7 +1582,7 @@ where
         .crosstalk_range_ignore_threshold_rate_mcps = 0x0000;
 
     // Apply to device.
-    dev.data.ll.customer.write(i2c)
+    dev.data.ll.customer.write(i2c).await
 }
 
 fn calc_crosstalk_plane_offset_with_margin(plane_offset_kcps: u32, margin_offset_kcps: i32) -> u32 {
@@ -1591,7 +1599,7 @@ fn calc_crosstalk_plane_offset_with_margin(plane_offset_kcps: u32, margin_offset
 
 /// Currently a very simple function to copy private xtalk parms into customer section and apply to
 /// device.
-fn enable_xtalk_compensation<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn enable_xtalk_compensation<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -1660,7 +1668,7 @@ where
     );
 
     // Apply to device.
-    dev.data.ll.customer.write(i2c)
+    dev.data.ll.customer.write(i2c).await
 }
 
 /// Given field access to an entry, set the value at that field and write it via I2C.
@@ -1671,14 +1679,14 @@ macro_rules! set_entry {
     }};
 }
 
-fn disable_firmware<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn disable_firmware<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    set_entry!(dev.data.ll.sys_ctrl.firmware__enable, i2c, 0x00)
+    set_entry!(dev.data.ll.sys_ctrl.firmware__enable, i2c, 0x00).await
 }
 
-fn disable_powerforce<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn disable_powerforce<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -1687,16 +1695,17 @@ where
         i2c,
         0x00
     )
+    .await
 }
 
-fn enable_firmware<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn enable_firmware<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    set_entry!(dev.data.ll.sys_ctrl.firmware__enable, i2c, 0x01)
+    set_entry!(dev.data.ll.sys_ctrl.firmware__enable, i2c, 0x01).await
 }
 
-fn enable_powerforce<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn enable_powerforce<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -1705,6 +1714,7 @@ where
         i2c,
         0x01
     )
+    .await
 }
 
 /// Sequence below enables NVM for reading
@@ -1714,7 +1724,7 @@ where
 /// - Power up NVM.
 /// - Wait for 50us while the NVM powers up.
 /// - Configure for reading and set the pulse width (16-bit).
-fn nvm_enable<I, D>(
+async fn nvm_enable<I, D>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -1733,21 +1743,22 @@ where
     delay.delay_us(ll::device::ENABLE_POWERFORCE_SETTLING_TIME_US as u32);
 
     // Power up NVM.
-    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__PDN, 0x01)?;
+    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__PDN, 0x01).await?;
 
     // Enable NVM Clock.
-    write_byte(i2c, reg::Index::RANGING_CORE__CLK_CTRL1, 0x05)?;
+    write_byte(i2c, reg::Index::RANGING_CORE__CLK_CTRL1, 0x05).await?;
 
     // Wait the required time for NVM to power up.
     delay.delay_us(nvm_power_up_delay_us as u32);
 
     // Select read mode and set control pulse width.
-    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__MODE, 0x01)?;
+    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__MODE, 0x01).await?;
     write_word(
         i2c,
         reg::Index::RANGING_CORE__NVM_CTRL__PULSE_WIDTH_MSB,
         nvm_ctrl_pulse_width,
-    )?;
+    )
+    .await?;
 
     Ok(())
 }
@@ -1758,7 +1769,7 @@ where
 /// - Trigger the read of the NVM data by toggling NVM_CTRL__READN
 /// - Read the NVM data - 4 bytes wide read/write interface
 /// - Increment data byte pointer by 4 ready for the next loop
-fn nvm_read<I, D, E>(
+async fn nvm_read<I, D, E>(
     i2c: &mut I,
     delay: &mut D,
     start_addr: u8,
@@ -1771,32 +1782,33 @@ where
 {
     for nvm_addr in start_addr..start_addr + count {
         // Set address.
-        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__ADDR, nvm_addr)?;
+        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__ADDR, nvm_addr).await?;
         // Trigger reading of data.
-        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x00)?;
+        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x00).await?;
         // Wait the required time.
         delay.delay_us(NVM_READ_TRIGGER_DELAY_US as u32);
-        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x01)?;
+        write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x01).await?;
         // Read 4-byte wide data register.
         read_slice(
             i2c,
             reg::Index::RANGING_CORE__NVM_CTRL__DATAOUT_MMM,
             &mut data[..4],
-        )?;
+        )
+        .await?;
         data = &mut data[4..];
     }
     Ok(())
 }
 
 /// Power down NVM (OTP) to extend lifetime.
-fn nvm_disable<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn nvm_disable<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x01)?;
+    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__READN, 0x01).await?;
 
     // Power down NVM.
-    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__PDN, 0x00)?;
+    write_byte(i2c, reg::Index::RANGING_CORE__NVM_CTRL__PDN, 0x00).await?;
 
     // Keep power force enabled.
     disable_powerforce(dev, i2c)?;
@@ -1806,7 +1818,7 @@ where
 }
 
 /// Reads from ALL 512 bytes of NVM data.
-fn read_nvm_raw_data<I, D, E>(
+async fn read_nvm_raw_data<I, D, E>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -1819,20 +1831,20 @@ where
     D: Delay,
 {
     // Enable NVM and set control pulse width.
-    nvm_enable(dev, i2c, delay, 0x0004, NVM_POWER_UP_DELAY_US as _)?;
+    nvm_enable(dev, i2c, delay, 0x0004, NVM_POWER_UP_DELAY_US as _).await?;
 
     // Read the raw NVM data.
     // - currently all of 128 * 4 bytes = 512 bytes are read.
-    nvm_read(i2c, delay, start_address, count, nvm_raw_data)?;
+    nvm_read(i2c, delay, start_address, count, nvm_raw_data).await?;
 
-    nvm_disable(dev, i2c)?;
+    nvm_disable(dev, i2c).await?;
 
     Ok(())
 }
 
 /// Initialises the VCSEL period A and phasecal timeout registers for the Reference SPAD
 /// Characterisation test.
-fn set_ref_spad_char_config<I>(
+async fn set_ref_spad_char_config<I>(
     dev: &mut Device,
     i2c: &mut I,
     vcsel_period_a: u8,
@@ -1862,8 +1874,8 @@ where
     dev.data.ll.tim_cfg.range_config__vcsel_period_a.0 = vcsel_period_a;
 
     // Update device settings.
-    write_entry(i2c, dev.data.ll.gen_cfg.phasecal_config__timeout_macrop)?;
-    write_entry(i2c, dev.data.ll.tim_cfg.range_config__vcsel_period_a)?;
+    write_entry(i2c, dev.data.ll.gen_cfg.phasecal_config__timeout_macrop).await?;
+    write_entry(i2c, dev.data.ll.tim_cfg.range_config__vcsel_period_a).await?;
 
     // Copy vcsel register value to the WOI registers to ensure that it is correctly set for the
     // specified VCSEL period.
@@ -1871,7 +1883,7 @@ where
         dev.data.ll.tim_cfg.range_config__vcsel_period_a.0,
         dev.data.ll.tim_cfg.range_config__vcsel_period_a.0,
     ];
-    write_slice(i2c, reg::SD_CONFIG__WOI_SD0::INDEX, &buffer)?;
+    write_slice(i2c, reg::SD_CONFIG__WOI_SD0::INDEX, &buffer).await?;
 
     // Set min, target and max rate limits.
     dev.data.ll.customer.ref_spad_char__total_rate_target_mcps.0 = total_rate_target_mcps;
@@ -1879,42 +1891,45 @@ where
         i2c,
         reg::REF_SPAD_CHAR__TOTAL_RATE_TARGET_MCPS::INDEX,
         total_rate_target_mcps,
-    )?;
+    )
+    .await?;
     write_word(
         i2c,
         reg::RANGE_CONFIG__SIGMA_THRESH::INDEX,
         max_count_rate_rtn_limit_mcps,
-    )?;
+    )
+    .await?;
     write_word(
         i2c,
         reg::RANGE_CONFIG__MIN_COUNT_RATE_RTN_LIMIT_MCPS::INDEX,
         min_count_rate_rtn_limit_mcps,
     )
+    .await
 }
 
 /// Triggers the start of a test mode.
-fn start_test<I>(i2c: &mut I, test_mode__ctrl: u8) -> Result<(), I::Error>
+async fn start_test<I>(i2c: &mut I, test_mode__ctrl: u8) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    write_byte(i2c, reg::TEST_MODE__CTRL::INDEX, test_mode__ctrl)
+    write_byte(i2c, reg::TEST_MODE__CTRL::INDEX, test_mode__ctrl).await
 }
 
 /// Determines if new range data is ready by reading bit 0 of VL53L1_GPIO__TIO_HV_STATUS to
 /// determine the current state of output interrupt pin.
-fn is_new_data_ready<I>(dev: &mut Device, i2c: &mut I) -> Result<bool, I::Error>
+async fn is_new_data_ready<I>(dev: &mut Device, i2c: &mut I) -> Result<bool, I::Error>
 where
     I: I2c,
 {
     let gpio__mux_active_high_hv =
         dev.data.ll.stat_cfg.gpio_hv_mux__ctrl.0 & ll::device::DEVICEINTERRUPTLEVEL_ACTIVE_MASK;
     let interrupt_ready = gpio__mux_active_high_hv;
-    let gpio__tio_hv_status = read_entry::<_, reg::GPIO__TIO_HV_STATUS>(i2c)?;
+    let gpio__tio_hv_status = read_entry::<_, reg::GPIO__TIO_HV_STATUS>(i2c).await?;
     Ok((gpio__tio_hv_status.0 & 0x01) == interrupt_ready)
 }
 
 /// Wrapper function for waiting for test mode completion.
-fn wait_for_test_completion<I, D>(
+async fn wait_for_test_completion<I, D>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -1924,9 +1939,10 @@ where
     D: Delay,
 {
     if let WaitMethod::Blocking = dev.data.ll.wait_method {
-        poll_for_range_completion(dev, i2c, delay, config::TEST_COMPLETION_POLLING_TIMEOUT_MS)?;
+        poll_for_range_completion(dev, i2c, delay, config::TEST_COMPLETION_POLLING_TIMEOUT_MS)
+            .await?;
     } else {
-        while !is_new_data_ready(dev, i2c)? {
+        while !is_new_data_ready(dev, i2c).await? {
             delay.delay_ms(config::POLL_DELAY_MS);
         }
     }
@@ -1945,7 +1961,7 @@ where
 }
 
 /// Runs the selected Device Test Mode.
-fn run_device_test<I, D, E>(
+async fn run_device_test<I, D, E>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -1956,17 +1972,17 @@ where
     D: Delay,
 {
     // Get current interrupt config.
-    dev.data.ll.stat_cfg.gpio_hv_mux__ctrl = read_entry(i2c)?;
+    dev.data.ll.stat_cfg.gpio_hv_mux__ctrl = read_entry(i2c).await?;
 
     // Trigger the test.
-    start_test(i2c, device_test_mode)?;
+    start_test(i2c, device_test_mode).await?;
 
     // Wait for test completion.
-    wait_for_test_completion(dev, i2c, delay)?;
+    wait_for_test_completion(dev, i2c, delay).await?;
 
     // Read range and report status.
     let mut comms_buffer = [0u8; 2];
-    read_slice(i2c, reg::RESULT__RANGE_STATUS::INDEX, &mut comms_buffer)?;
+    read_slice(i2c, reg::RESULT__RANGE_STATUS::INDEX, &mut comms_buffer).await?;
 
     dev.data.ll.sys_results.result__range_status.0 = comms_buffer[0];
     dev.data.ll.sys_results.result__report_status.0 = comms_buffer[1];
@@ -1979,13 +1995,13 @@ where
 
     // Clear test mode register
     //  - required so that next test command will trigger internal MCU interrupt
-    start_test(i2c, 0x00)?;
+    start_test(i2c, 0x00).await?;
 
     Ok(())
 }
 
 /// Runs Reference SPAD Characterisation.
-fn run_ref_spad_char<I, D, E>(
+async fn run_ref_spad_char<I, D, E>(
     dev: &mut Device,
     i2c: &mut I,
     delay: &mut D,
@@ -2006,10 +2022,11 @@ where
         dev.data.ll.refspadchar.max_count_rate_limit_mcps,
         dev.data.ll.refspadchar.min_count_rate_limit_mcps,
         dev.data.ll.stat_nvm.osc_measured__fast_osc__frequency.0,
-    )?;
+    )
+    .await?;
 
     // Run device test.
-    run_device_test(dev, i2c, delay, dev.data.ll.refspadchar.device_test_mode)?;
+    run_device_test(dev, i2c, delay, dev.data.ll.refspadchar.device_test_mode).await?;
 
     // Read results.
     let mut comms_buffer = [0u8; 6];
@@ -2017,7 +2034,8 @@ where
         i2c,
         reg::REF_SPAD_CHAR_RESULT__NUM_ACTUAL_REF_SPADS::INDEX,
         &mut comms_buffer[..2],
-    )?;
+    )
+    .await?;
 
     dev.data
         .ll
@@ -2031,7 +2049,8 @@ where
         i2c,
         reg::REF_SPAD_MAN__NUM_REQUESTED_REF_SPADS::INDEX,
         &comms_buffer[..2],
-    )?;
+    )
+    .await?;
 
     dev.data.ll.customer.ref_spad_man__num_requested_ref_spads.0 = comms_buffer[0];
     dev.data.ll.customer.ref_spad_man__ref_location.0 = comms_buffer[1];
@@ -2042,14 +2061,11 @@ where
     //  - RESULT__SPARE_0_SD_1
     //  - RESULT__SPARE_1_SD_1
     //  - RESULT__SPARE_2_SD_1
-    read_slice(i2c, reg::RESULT__SPARE_0_SD1::INDEX, &mut comms_buffer)?;
+    read_slice(i2c, reg::RESULT__SPARE_0_SD1::INDEX, &mut comms_buffer).await?;
 
     // Copy reference SPAD enables to customer nvm managed G02 registers.
-    write_slice(
-        i2c,
-        reg::GLOBAL_CONFIG__SPAD_ENABLES_REF_0::INDEX,
-        &mut comms_buffer,
-    )?;
+    write_slice(i2c, reg::GLOBAL_CONFIG__SPAD_ENABLES_REF_0::INDEX, &mut comms_buffer)
+        .await?;
     dev.data.ll.customer.global_config__spad_enables_ref_0.0 = comms_buffer[0];
     dev.data.ll.customer.global_config__spad_enables_ref_1.0 = comms_buffer[1];
     dev.data.ll.customer.global_config__spad_enables_ref_2.0 = comms_buffer[2];
@@ -2626,15 +2642,15 @@ fn init_ll_driver_state(dev: &mut LlData, device_state: DeviceState) {
     drv.rd_timing_status = 0;
 }
 
-fn read_p2p_data<I>(dev: &mut LlData, i2c: &mut I) -> Result<(), I::Error>
+async fn read_p2p_data<I>(dev: &mut LlData, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    dev.stat_nvm = Entries::read(i2c)?;
-    dev.customer = Entries::read(i2c)?;
-    dev.nvm_copy_data = Entries::read(i2c)?;
+    dev.stat_nvm = Entries::read(i2c).await?;
+    dev.customer = Entries::read(i2c).await?;
+    dev.nvm_copy_data = Entries::read(i2c).await?;
     copy_spads_to_slice(&dev.nvm_copy_data, &mut dev.rtn_good_spads);
-    dev.dbg_results.result__osc_calibrate_val = read_entry(i2c)?;
+    dev.dbg_results.result__osc_calibrate_val = read_entry(i2c).await?;
     if dev.stat_nvm.osc_measured__fast_osc__frequency.get() < 0x1000 {
         // TODO: Warn here about invalid value and change.
         dev.stat_nvm.osc_measured__fast_osc__frequency.0 = 0xBCCC;
@@ -2759,7 +2775,7 @@ fn low_power_auto_data_init(low_power_auto_data: &mut LowPowerAutoData) {
     low_power_auto_data.dss__required_spads = 0;
 }
 
-fn core_data_init<I>(dev: &mut LlData, i2c: &mut I, rd_p2p_data: u8) -> Result<(), Error<I::Error>>
+async fn core_data_init<I>(dev: &mut LlData, i2c: &mut I, rd_p2p_data: u8) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -2783,7 +2799,7 @@ where
     dev.version = <_>::default();
 
     if rd_p2p_data > 0 {
-        read_p2p_data(dev, i2c).map_err(Error::I2c)?;
+        read_p2p_data(dev, i2c).await?;
     }
 
     dev.refspadchar = <_>::default();
@@ -3231,7 +3247,7 @@ fn core_set_preset_mode(
 }
 
 /// Poll whether or not booting has completed.
-fn poll_for_boot_completion<I, D>(
+async fn poll_for_boot_completion<I, D>(
     dev: &mut LlData,
     i2c: &mut I,
     d: &mut D,
@@ -3243,7 +3259,7 @@ where
 {
     d.delay_us(FIRMWARE_BOOT_TIME_US as u32);
     let ix = reg::Index::FIRMWARE__SYSTEM_STATUS;
-    wait_value_mask_ex(i2c, d, timeout_ms, ix, 0x01, 0x01, config::POLL_DELAY_MS)?;
+    wait_value_mask_ex(i2c, d, timeout_ms, ix, 0x01, 0x01, config::POLL_DELAY_MS).await?;
     init_ll_driver_state(dev, DeviceState::SW_STANDBY);
     Ok(())
 }
@@ -3252,7 +3268,7 @@ where
 ///
 /// Interrupt may be either active high or active low. Use active_high to select the required level
 /// check.
-fn poll_for_range_completion<I, D>(
+async fn poll_for_range_completion<I, D>(
     dev: &mut Device,
     i2c: &mut I,
     d: &mut D,
@@ -3278,13 +3294,14 @@ where
         0x01,
         config::POLL_DELAY_MS,
     )
+    .await
 }
 
 /// Wait for the masked value at the given register to match the given `value`.
 ///
 /// - `poll_delay_ms` describes the interval between polling the register.
 /// - `timeout_ms` describes the overall timeout before `nb::Error::WouldBlock` is returned.
-fn wait_value_mask_ex<I, D>(
+async fn wait_value_mask_ex<I, D>(
     i2c: &mut I,
     d: &mut D,
     timeout_ms: u32,
@@ -3299,7 +3316,7 @@ where
 {
     let attempts = timeout_ms / poll_delay_ms;
     for _ in 0..attempts {
-        let reg_val = read_byte(i2c, index)?;
+        let reg_val = read_byte(i2c, index).await?;
         if value == (reg_val & mask) {
             return Ok(());
         }
@@ -3492,7 +3509,7 @@ fn update_ll_driver_cfg_state(ll: &mut LlData) {
 ///
 /// system_control is always sent as the last byte of this register group (mode_start) either
 /// triggers the range or enables the next range.
-fn init_and_start_range<I>(
+async fn init_and_start_range<I>(
     dev: &mut Device,
     i2c: &mut I,
     measurement_mode: DeviceMeasurementMode,
@@ -3640,7 +3657,7 @@ where
     dev.data.ll.sys_ctrl.write_to_slice(&mut buffer[start..end]);
 
     // Send via I2C.
-    write_slice(i2c, i2c_index, &buffer)?;
+    write_slice(i2c, i2c_index, &buffer).await?;
 
     update_ll_driver_rd_state(&mut dev.data.ll);
     update_ll_driver_cfg_state(&mut dev.data.ll);
@@ -3838,7 +3855,7 @@ fn set_simple_data(
 
 // Read via a single I2C multiple byte transaction all of the requested device measurement data
 // results.
-fn get_measurement_results<I>(
+async fn get_measurement_results<I>(
     dev: &mut Device,
     i2c: &mut I,
     device_results_level: DeviceResultsLevel,
@@ -3848,12 +3865,12 @@ where
 {
     // TODO: Original code does all this in one read which is probably slightly quicker.
     if device_results_level >= DeviceResultsLevel::FULL {
-        dev.data.ll.dbg_results = reg::Entries::read(i2c)?;
+        dev.data.ll.dbg_results = reg::Entries::read(i2c).await?;
     }
     if device_results_level >= DeviceResultsLevel::UPTO_CORE {
-        dev.data.ll.core_results = reg::Entries::read(i2c)?;
+        dev.data.ll.core_results = reg::Entries::read(i2c).await?;
     }
-    dev.data.ll.sys_results = reg::Entries::read(i2c)?;
+    dev.data.ll.sys_results = reg::Entries::read(i2c).await?;
     Ok(())
 }
 
@@ -4031,7 +4048,7 @@ fn check_ll_driver_rd_state(dev: &Device) -> Result<(), StError> {
 //  VL53L1_copy_sys_and_core_results_to_range_results()
 //
 //  The input measurement mode controls what happens next ...
-fn get_device_results<I>(
+async fn get_device_results<I>(
     dev: &mut Device,
     i2c: &mut I,
     device_results_level: DeviceResultsLevel,
@@ -4040,7 +4057,7 @@ where
     I: I2c,
 {
     // Get device results.
-    get_measurement_results(dev, i2c, device_results_level).map_err(Error::I2c)?;
+    get_measurement_results(dev, i2c, device_results_level).await.map_err(Error::I2c)?;
 
     copy_sys_and_core_results_to_range_results(
         dev.data.ll.gain_cal.standard_ranging_gain_factor as i32,
@@ -4090,7 +4107,7 @@ where
 
 /// Stops any in process range using the ABORT command. Also clears all of the measurement mode
 /// bits.
-fn stop_range<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
+async fn stop_range<I>(dev: &mut Device, i2c: &mut I) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -4099,7 +4116,7 @@ where
         & reg::settings::DEVICEMEASUREMENTMODE_STOP_MASK)
         | DeviceMeasurementMode::ABORT as u8;
 
-    dev.data.ll.sys_ctrl.write(i2c)?;
+    dev.data.ll.sys_ctrl.write(i2c).await?;
 
     // Abort bit is auto clear so clear register group structure to match.
     dev.data.ll.sys_ctrl.system__mode_start.0 =

@@ -1,6 +1,11 @@
-use embedded_hal::i2c::I2c;
+use embedded_hal_async::i2c::{I2c, ErrorType};
+use async_trait::async_trait;
+
+extern crate alloc;
+use alloc::boxed::Box;
 
 /// A struct of contiguous entries within the register map.
+#[async_trait(?Send)]
 pub trait Entries: Sized {
     /// The index of the first entry.
     const INDEX: crate::Index;
@@ -17,12 +22,12 @@ pub trait Entries: Sized {
     /// Write the entries via I2C.
     ///
     /// Implemented in terms of `write_to_slice`.
-    fn write<I>(&self, i2c: &mut I) -> Result<(), I::Error>
+    async fn write<I>(&self, i2c: &mut I) -> Result<(), <I as ErrorType>::Error>
     where
         I: I2c;
 
     /// Read a new instance of the `Entries` struct from I2C.
-    fn read<I>(i2c: &mut I) -> Result<Self, I::Error>
+    async fn read<I>(i2c: &mut I) -> Result<Self, <I as ErrorType>::Error>
     where
         I: I2c;
 }
@@ -37,6 +42,7 @@ macro_rules! entries_struct {
             )*
         }
 
+        #[async_trait(?Send)]
         impl Entries for $Struct {
             const INDEX: crate::Index = entries_struct!(read_first_index $($Entry),*);
             const LEN_BYTES: usize = entries_struct!(following_entry_index $($Entry),*) - Self::INDEX as usize;
@@ -55,21 +61,21 @@ macro_rules! entries_struct {
                 )*
             }
 
-            fn write<I>(&self, i2c: &mut I) -> Result<(), I::Error>
+            async fn write<I>(&self, i2c: &mut I) -> Result<(), <I as ErrorType>::Error>
             where
                 I: I2c,
             {
                 let mut bs = [0u8; Self::LEN_BYTES];
                 self.write_to_slice(&mut bs);
-                crate::write_slice(i2c, Self::INDEX, &bs)
+                crate::write_slice(i2c, Self::INDEX, &bs).await
             }
 
-            fn read<I>(i2c: &mut I) -> Result<Self, I::Error>
+            async fn read<I>(i2c: &mut I) -> Result<Self, <I as ErrorType>::Error>
             where
                 I: I2c,
             {
                 let mut bs = [0u8; Self::LEN_BYTES];
-                crate::read_slice(i2c, Self::INDEX, &mut bs).map(|()| {
+                crate::read_slice(i2c, Self::INDEX, &mut bs).await.map(|()| {
                     $(
                         let start = (<$Entry as crate::Entry>::INDEX as u16 - Self::INDEX as u16) as usize;
                         let mut arr: <$Entry as crate::Entry>::Array = Default::default();
