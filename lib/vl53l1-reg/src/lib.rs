@@ -45,6 +45,14 @@ pub trait Entry: Sized {
     fn index(&self) -> Index {
         Self::INDEX
     }
+
+    /// Read the the given entry.
+    fn write<I>(self, i2c: &mut I, address: u8) -> Result<(), I::Error>
+    where
+        I: I2c,
+    {
+        write_entry(i2c, address, self)
+    }
 }
 
 const INDEX_LEN: usize = 2;
@@ -52,13 +60,13 @@ const DATA_LEN: usize = 200;
 
 /// The maximum amount of data that may be written to `write_slice` at once.
 pub const MAX_SLICE_LEN: usize = DATA_LEN - INDEX_LEN;
-/// The slave address of the VL53L1X. Note that `embedded-hal` I2C API adds the w/r bit for us.
+/// The default slave address of the VL53L1X. Note that `embedded-hal` I2C API adds the w/r bit for us.
 pub const SLAVE_ADDR: u8 = 0x52 >> 1;
 
 /// Write given slice of data to the device at the given index.
 ///
 /// **Panic**s if `slice.len()` is greater than `MAX_SLICE_LEN`.
-pub fn write_slice<I>(i2c: &mut I, index: Index, slice: &[u8]) -> Result<(), I::Error>
+pub fn write_slice<I>(i2c: &mut I, address: u8, index: Index, slice: &[u8]) -> Result<(), I::Error>
 where
     I: I2c,
 {
@@ -80,76 +88,76 @@ where
     }
 
     // Write the data to the slave.
-    i2c.write(SLAVE_ADDR, &data)
+    i2c.write(address, &data)
 }
 
 /// Read the value at the given index into the given slice.
 ///
 /// The length of the given slice must represent the length of the expected amount of data to be
 /// read.
-pub fn read_slice<I>(i2c: &mut I, index: Index, slice: &mut [u8]) -> Result<(), I::Error>
+pub fn read_slice<I>(i2c: &mut I, address: u8, index: Index, slice: &mut [u8]) -> Result<(), I::Error>
 where
     I: I2c,
 {
     let arr: [u8; 2] = index.into();
-    i2c.write_read(SLAVE_ADDR, &arr, slice)
+    i2c.write_read(address, &arr, slice)
 }
 
 /// Shorthand for writing a slice with a single byte.
-pub fn write_byte<I>(i2c: &mut I, index: Index, byte: u8) -> Result<(), I::Error>
+pub fn write_byte<I>(i2c: &mut I, address: u8, index: Index, byte: u8) -> Result<(), I::Error>
 where
     I: I2c,
 {
-    write_slice(i2c, index, &[byte])
+    write_slice(i2c, address, index, &[byte])
 }
 
 /// Shorthand for reading a single byte from the register at the given index.
-pub fn read_byte<I>(i2c: &mut I, index: Index) -> Result<u8, I::Error>
+pub fn read_byte<I>(i2c: &mut I, address: u8, index: Index) -> Result<u8, I::Error>
 where
     I: I2c,
 {
     let mut b = [0u8];
-    read_slice(i2c, index, &mut b)?;
+    read_slice(i2c, address, index, &mut b)?;
     let [b] = b;
     Ok(b)
 }
 
 /// Shorthand for writing a slice with a single word.
-pub fn write_word<I>(i2c: &mut I, index: Index, word: u16) -> Result<(), I::Error>
+pub fn write_word<I>(i2c: &mut I, address: u8, index: Index, word: u16) -> Result<(), I::Error>
 where
     I: I2c,
 {
     let [a, b] = word.to_be_bytes();
-    write_slice(i2c, index, &[a, b])
+    write_slice(i2c, address, index, &[a, b])
 }
 
 /// Shorthand for reading two consecutive bytes from the given index.
-pub fn read_word<I>(i2c: &mut I, index: Index) -> Result<u16, I::Error>
+pub fn read_word<I>(i2c: &mut I, address: u8, index: Index) -> Result<u16, I::Error>
 where
     I: I2c,
 {
     let mut bs = [0u8; 2];
-    read_slice(i2c, index, &mut bs)?;
+    read_slice(i2c, address, index, &mut bs)?;
     Ok(u16::from_be_bytes(bs))
 }
 
 /// Read the the given entry.
-pub fn write_entry<I, E>(i2c: &mut I, entry: E) -> Result<(), I::Error>
+pub fn write_entry<I, E>(i2c: &mut I, address: u8, entry: E) -> Result<(), I::Error>
 where
     I: I2c,
     E: Entry,
 {
     let arr = entry.into_array();
-    write_slice(i2c, E::INDEX, arr.as_ref())
+    write_slice(i2c, address, E::INDEX, arr.as_ref())
 }
 
 /// Read the value for a single entry.
-pub fn read_entry<I, E>(i2c: &mut I) -> Result<E, I::Error>
+pub fn read_entry<I, E>(i2c: &mut I, address: u8) -> Result<E, I::Error>
 where
     I: I2c,
     E: Entry,
 {
     let mut arr: E::Array = Default::default();
-    read_slice(i2c, E::INDEX, arr.as_mut())?;
+    read_slice(i2c, address, E::INDEX, arr.as_mut())?;
     Ok(E::from_array(arr))
 }

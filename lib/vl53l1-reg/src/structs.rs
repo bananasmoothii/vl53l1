@@ -17,12 +17,12 @@ pub trait Entries: Sized {
     /// Write the entries via I2C.
     ///
     /// Implemented in terms of `write_to_slice`.
-    fn write<I>(&self, i2c: &mut I) -> Result<(), I::Error>
+    fn write<I>(&self, i2c: &mut I, address: u8) -> Result<(), I::Error>
     where
         I: I2c;
 
     /// Read a new instance of the `Entries` struct from I2C.
-    fn read<I>(i2c: &mut I) -> Result<Self, I::Error>
+    fn read<I>(i2c: &mut I, address: u8) -> Result<Self, I::Error>
     where
         I: I2c;
 }
@@ -55,21 +55,21 @@ macro_rules! entries_struct {
                 )*
             }
 
-            fn write<I>(&self, i2c: &mut I) -> Result<(), I::Error>
+            fn write<I>(&self, i2c: &mut I, address: u8) -> Result<(), I::Error>
             where
                 I: I2c,
             {
                 let mut bs = [0u8; Self::LEN_BYTES];
                 self.write_to_slice(&mut bs);
-                crate::write_slice(i2c, Self::INDEX, &bs)
+                crate::write_slice(i2c, address, Self::INDEX, &bs)
             }
 
-            fn read<I>(i2c: &mut I) -> Result<Self, I::Error>
+            fn read<I>(i2c: &mut I, address: u8) -> Result<Self, I::Error>
             where
                 I: I2c,
             {
                 let mut bs = [0u8; Self::LEN_BYTES];
-                crate::read_slice(i2c, Self::INDEX, &mut bs).map(|()| {
+                crate::read_slice(i2c, address, Self::INDEX, &mut bs).map(|()| {
                     $(
                         let start = (<$Entry as crate::Entry>::INDEX as u16 - Self::INDEX as u16) as usize;
                         let mut arr: <$Entry as crate::Entry>::Array = Default::default();
