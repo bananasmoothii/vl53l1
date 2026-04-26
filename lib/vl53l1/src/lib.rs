@@ -1202,6 +1202,8 @@ where
 {
     write_byte(i2c, dev.address(), reg::Index::I2C_SLAVE__DEVICE_ADDRESS, address).map_err(Error::I2c)?;
     dev.data.ll.address = address;
+    // Keep stat_nvm in sync so init_and_start_range doesn't overwrite the register back to the old address.
+    dev.data.ll.stat_nvm.i2c_slave__device_address.0 = address;
     Ok(())
 }
 
